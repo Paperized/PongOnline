@@ -70,7 +70,7 @@ public class BallMovement : NetworkBehaviour
         // get an offset between -1 and 1 depending on the contact point height
         float normalizedOffset = NormalizeFromValue(heightPlayer, contactPointY, 2);
         // get the player offset depending on the side he's playing, to make the ball face the right direction
-        float playerSide = collision.gameObject.GetComponent<PlayerMovement>().playerSide;
+        float playerSide = collision.gameObject.GetComponent<PlayerPawn>().playerSide;
         // the new angle is the max possible angle multiplied by the normalized offset (center = 0, limits = maxAngle) depending
         // also on the player side
         float outputAngle = playerSide * 90f + maxAngle * normalizedOffset * -playerSide;

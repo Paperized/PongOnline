@@ -48,13 +48,13 @@ public class ScoreManager : NetworkBehaviour
 
     private void UpdateWinLoseText()
     {
-        PlayerMovement[] players = FindObjectsOfType<PlayerMovement>();
+        PlayerPawn[] players = FindObjectsOfType<PlayerPawn>();
         if (players.Length != 2)
         {
             Debug.LogError("Player must be 2");
         }
 
-        PlayerMovement owned = players[0].IsOwner ? players[0] : players[1];
+        PlayerPawn owned = players[0].IsOwner ? players[0] : players[1];
         if (scoreLeft >= maxScore) 
         {
             if(owned.playerSide == -1)

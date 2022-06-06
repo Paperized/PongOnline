@@ -10,6 +10,7 @@ namespace Match
 {
     public class MatchLogic : NetworkBehaviour, IMatchEvents
     {
+        [Header("Spawn Positions")]
         [SerializeField]
         private Transform leftPlayerSpawn, rightPlayerSpawn, ballSpawn;
         [SerializeField]
@@ -17,11 +18,19 @@ namespace Match
 
         private PhysicsScene2D localPhysics2D;
         private ScoreManager scoreManager;
+
+        [Header("Controller Prefabs")]
+        public NetworkObject controllerPrefab;
+
+        [Header("Pawn Prefabs")]
         public NetworkObject playerPrefab;
         public NetworkObject ballPrefab;
 
-        private PlayerMovement leftPlayer;
-        private PlayerMovement rightPlayer;
+        private PlayerController leftPlayer;
+        private PlayerController rightPlayer;
+
+        private PlayerPawn leftPawn;
+        private PlayerPawn rightPawn;
         private BallMovement ballObject;
 
         private bool isStartingRound;
@@ -113,27 +122,34 @@ namespace Match
         private void SpawnPlayerAndStartIfFull(NetworkConnection conn)
         {
             if (conn == null) return;
+            NetworkObject playerController = Instantiate(controllerPrefab);
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(playerController.gameObject, gameObject.scene);
+            ServerManager.Spawn(playerController, conn);
+
             bool spawnLeft = leftPlayer == null;
             Transform tsf = spawnLeft ? leftPlayerSpawn : rightPlayerSpawn;
 
             NetworkObject nob = Instantiate(playerPrefab, tsf.position, tsf.rotation);
             UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(nob.gameObject, gameObject.scene);
-
             ServerManager.Spawn(nob, conn);
 
             if (!spawnLeft)
             {
-                rightPlayer = nob.GetComponent<PlayerMovement>();
-                rightPlayer.ServerSetSpeedMult(roomData.playerSpeedMultiplier);
-                rightPlayer.playerSide = 1;
-                rightPlayer.startingXPosition = tsf.position.x;
+                rightPlayer = playerController.GetComponent<PlayerController>();
+                rightPawn = nob.GetComponent<PlayerPawn>();
+                rightPawn.ServerSetSpeedMult(roomData.playerSpeedMultiplier);
+                rightPawn.playerSide = 1;
+                rightPawn.startingXPosition = tsf.position.x;
+                rightPlayer.ChangePlayerPawnControlled(rightPawn);
             }
             else
             {
-                leftPlayer = nob.GetComponent<PlayerMovement>();
-                leftPlayer.ServerSetSpeedMult(roomData.playerSpeedMultiplier);
-                leftPlayer.playerSide = -1;
-                leftPlayer.startingXPosition = tsf.position.x;
+                leftPlayer = playerController.GetComponent<PlayerController>();
+                leftPawn = nob.GetComponent<PlayerPawn>();
+                leftPawn.ServerSetSpeedMult(roomData.playerSpeedMultiplier);
+                leftPawn.playerSide = -1;
+                leftPawn.startingXPosition = tsf.position.x;
+                leftPlayer.ChangePlayerPawnControlled(leftPawn);
             }
 
             if (leftPlayer && rightPlayer)

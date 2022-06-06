@@ -1,11 +1,12 @@
 using FishNet;
+using FishNet.Connection;
 using FishNet.Object;
 using FishNet.Object.Prediction;
 using FishNet.Object.Synchronizing;
 using UnityEngine;
 using Utils;
 
-public class PlayerMovement : NetworkBehaviour
+public class PlayerPawn : NetworkBehaviour
 {
     #region Types.
     public struct MoveData
@@ -33,11 +34,15 @@ public class PlayerMovement : NetworkBehaviour
     [SerializeField]
     [SyncVar]
     private float _speed = 17f;
+    public float Speed => _speed;
+
     private Rigidbody2D _rigidbody;
 
     [SyncVar]
     public int playerSide;
     public float startingXPosition;
+
+    private MoveData _moveData = default;
 
     private void Awake()
     {
@@ -49,55 +54,57 @@ public class PlayerMovement : NetworkBehaviour
         _speed = _speed * mult;
     }
 
-    public override void OnStartNetwork()
+    public void SetVerticalVelocity(float velocity)
     {
-        base.OnStartNetwork();
-
-        TimeManager.OnTick += TimeManager_OnTick;
-        TimeManager.OnPostTick += TimeManager_OnPostTick;
+        _moveData.Vertical = velocity;
     }
 
-    public override void OnStopNetwork()
+    public override void OnStartServer()
     {
-        base.OnStopNetwork();
+        base.OnStartServer();
 
-        if (TimeManager != null)
+        TimeManager.OnTick += TimeManager_ServerOnTick;
+        TimeManager.OnPostTick += TimeManager_ServerOnPostTick;
+    }
+
+    public override void OnStopServer()
+    {
+        base.OnStopServer();
+
+        TimeManager.OnTick -= TimeManager_ServerOnTick;
+        TimeManager.OnPostTick -= TimeManager_ServerOnPostTick;
+    }
+
+    public override void OnOwnershipClient(NetworkConnection prevOwner)
+    {
+        base.OnOwnershipClient(prevOwner);
+
+        if(IsOwner)
         {
-            TimeManager.OnTick -= TimeManager_OnTick;
-            TimeManager.OnPostTick -= TimeManager_OnPostTick;
+            TimeManager.OnTick += TimeManager_ClientOnTick;
+        }
+        else if(prevOwner == LocalConnection)
+        {
+            TimeManager.OnTick -= TimeManager_ClientOnTick;
         }
     }
 
-    private void TimeManager_OnTick()
+    private void TimeManager_ClientOnTick()
     {
-        if (base.IsOwner)
-        {
-            Reconciliation(default, false);
-            CheckInput(out MoveData md);
-            Move(md, false);
-        }
-        if (base.IsServer)
-        {
-            Move(default, true);
-        }
+        Reconciliation(default, false);
+        Move(_moveData, false);
+    }
+
+    private void TimeManager_ServerOnTick()
+    {
+        Move(default, true);
     }
 
 
-    private void TimeManager_OnPostTick()
+    private void TimeManager_ServerOnPostTick()
     {
-        if (base.IsServer)
-        {
-            ReconcileData rd = new ReconcileData(transform.position, _rigidbody.velocity.y);
-            Reconciliation(rd, true);
-        }
-    }
-
-    private void CheckInput(out MoveData md)
-    {
-        md = default;
-
-        float vertical = Input.GetAxisRaw("Vertical") * _speed;
-        md.Vertical = vertical;
+        ReconcileData rd = new ReconcileData(transform.position, _rigidbody.velocity.y);
+        Reconciliation(rd, true);
     }
 
     [Replicate]
