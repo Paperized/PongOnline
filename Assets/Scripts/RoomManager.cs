@@ -28,12 +28,11 @@ public class RoomManager : NetworkBehaviour
     }
 
     [ServerRpc(RequireOwnership = false)]
-    public void MakeNewRoomRPC(NetworkConnection conn = null)
+    public void MakeNewRoomRPC(CreationRoomData creationRoomData, NetworkConnection conn = null)
     {
         if (conn == null) return;
-        RoomData roomData = new RoomData();
+        RoomData roomData = new RoomData(creationRoomData);
         roomData.id = maxRoomId++;
-        roomData.title = "Room Number " + roomData.id;
         roomData.owner = conn;
         roomData.AddPlayer(conn);
 
@@ -60,8 +59,36 @@ public class RoomManager : NetworkBehaviour
         SceneManager.LoadConnectionScenes(conn, sceneLoadData);
     }
 
+    [ServerRpc(RequireOwnership = false)]
+    public void ServerUnloadPlayerFromRoom(int roomId, NetworkConnection conn = null)
+    {
+        if (roomId < 0) return;
+        Scene matchScene = _roomToScene[roomId];
+        if (matchScene == null) return;
+        int roomIndex = _rooms.FindIndex(x => x.id == roomId);
+        if (!_rooms[roomIndex].ContainsPlayer(conn)) return;
+
+        SceneUnloadData sceneUnloadData = new SceneUnloadData(matchScene);
+        sceneUnloadData.Params.ServerParams = new object[] { roomId };
+        SceneManager.UnloadConnectionScenes(conn, sceneUnloadData);
+    }
+
+    public void OnGameFinished(int roomId)
+    {
+        if (roomId < 0) return;
+        Scene matchScene = _roomToScene[roomId];
+        if (matchScene == null) return;
+
+        int roomIndex = _rooms.FindIndex(x => x.id == roomId);
+        _rooms[roomIndex].isFinished = true;
+        SceneUnloadData sceneUnloadData = new SceneUnloadData(matchScene);
+        sceneUnloadData.Params.ServerParams = new object[] { _rooms[roomIndex].id };
+        SceneManager.UnloadConnectionScenes(_rooms[roomIndex].GetAllPlayersInside(), sceneUnloadData);
+    }
+
     public void RemovePlayerFromRoom(NetworkConnection conn)
     {
+        if (conn == null) return;
         RoomData room = _rooms.Find(x => x.ContainsPlayer(conn));
         if (room == null) return;
         room.RemovePlayer(conn);
@@ -92,19 +119,6 @@ public class RoomManager : NetworkBehaviour
         }
     }
 
-    public void OnGameFinished(int roomId)
-    {
-        if (roomId < 0) return;
-        Scene matchScene = _roomToScene[roomId];
-        if (matchScene == null) return;
-
-        int roomIndex = _rooms.FindIndex(x => x.id == roomId);
-        _rooms[roomIndex].isFinished = true;
-        SceneUnloadData sceneUnloadData = new SceneUnloadData(matchScene);
-        sceneUnloadData.Params.ServerParams = new object[] { _rooms[roomIndex].id };
-        SceneManager.UnloadConnectionScenes(_rooms[roomIndex].GetAllPlayersInside(), sceneUnloadData);
-    }
-
     #region Server Events
     public override void OnStartServer()
     {
@@ -112,6 +126,7 @@ public class RoomManager : NetworkBehaviour
 
         SceneManager.OnLoadEnd += ServerSceneManager_OnLoadEnd;
         SceneManager.OnUnloadStart += ServerSceneManager_OnUnloadStart;
+        SceneManager.OnClientPresenceChangeStart += ServerSceneManager_OnClientPresenceChangeStart;
         SceneManager.OnClientPresenceChangeEnd += ServerSceneManager_OnClientPresenceChangeEnd;
 
         ServerManager.OnRemoteConnectionState += ServerManager_OnRemoteConnectionState;
@@ -123,14 +138,21 @@ public class RoomManager : NetworkBehaviour
 
         SceneManager.OnLoadEnd -= ServerSceneManager_OnLoadEnd;
         SceneManager.OnUnloadStart -= ServerSceneManager_OnUnloadStart;
+        SceneManager.OnClientPresenceChangeStart -= ServerSceneManager_OnClientPresenceChangeStart;
         SceneManager.OnClientPresenceChangeEnd -= ServerSceneManager_OnClientPresenceChangeEnd;
 
         ServerManager.OnRemoteConnectionState -= ServerManager_OnRemoteConnectionState;
     }
 
+    private void ServerSceneManager_OnClientPresenceChangeStart(ClientPresenceChangeEventArgs obj)
+    {
+        if (obj.Scene.name != "SampleScene" || obj.Added) return;
+        RemovePlayerFromRoom(obj.Connection);
+    }
+
     private void ServerSceneManager_OnClientPresenceChangeEnd(ClientPresenceChangeEventArgs obj)
     {
-        if (obj.Scene.name != "SampleScene") return;
+        if (obj.Scene.name != "SampleScene" || !obj.Added) return;
         RoomData room = _rooms.Find(x => x.ContainsPlayer(obj.Connection));
         if (room == null) return;
         room.matchEvents.OnPlayerEnter(obj.Connection);
@@ -177,6 +199,7 @@ public class RoomManager : NetworkBehaviour
 
                 int matchId = (int)matchParams[0];
                 int roomIndex = _rooms.FindIndex(x => x.id == matchId);
+                _rooms[roomIndex].playersInside.Clear();
                 _rooms[roomIndex].matchEvents.OnMatchDestroy();
                 _rooms.RemoveAt(roomIndex);
                 _roomToScene.Remove(matchId);

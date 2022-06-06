@@ -1,8 +1,10 @@
 ﻿using Data;
+using FishNet;
 using FishNet.Connection;
 using FishNet.Object;
 using System.Collections;
 using UnityEngine;
+using Utils;
 
 namespace Match
 {
@@ -23,7 +25,10 @@ namespace Match
         private BallMovement ballObject;
 
         private bool isStartingRound;
+        private bool isEnding;
         private RoomData roomData;
+
+        private int idRoomClient;
 
         private void Start()
         {
@@ -38,19 +43,25 @@ namespace Match
         {
             base.OnStartNetwork();
 
-            TimeManager.OnTick += TimeManager_OnTick;
+            TimeManager.OnTick += UpdatePhysics;
         }
 
         public override void OnStopNetwork()
         {
             base.OnStopNetwork();
 
-            TimeManager.OnTick -= TimeManager_OnTick;
+            TimeManager.OnTick -= UpdatePhysics;
         }
 
-        private void TimeManager_OnTick()
+        private void UpdatePhysics()
         {
-            localPhysics2D.Simulate(Time.fixedDeltaTime);
+            localPhysics2D.Simulate((float)TimeManager.TickDelta);
+        }
+
+        [ObserversRpc(BufferLast = true)]
+        public void NotifyRoomIdToClients(int roomId)
+        {
+            idRoomClient = roomId;
         }
 
         public void OnScorePoint(Utils.MatchSide side)
@@ -80,6 +91,7 @@ namespace Match
         {
             Debug.Log("On match created!");
             this.roomData = roomData;
+            NotifyRoomIdToClients(roomData.id);
         }
 
         public void OnPlayerEnter(NetworkConnection conn)
@@ -112,12 +124,14 @@ namespace Match
             if (!spawnLeft)
             {
                 rightPlayer = nob.GetComponent<PlayerMovement>();
+                rightPlayer.ServerSetSpeedMult(roomData.playerSpeedMultiplier);
                 rightPlayer.playerSide = 1;
                 rightPlayer.startingXPosition = tsf.position.x;
             }
             else
             {
                 leftPlayer = nob.GetComponent<PlayerMovement>();
+                leftPlayer.ServerSetSpeedMult(roomData.playerSpeedMultiplier);
                 leftPlayer.playerSide = -1;
                 leftPlayer.startingXPosition = tsf.position.x;
             }
@@ -140,6 +154,7 @@ namespace Match
                     ServerManager.Spawn(nob);
 
                     ballObject = nob.GetComponent<BallMovement>();
+                    ballObject.ServerSetInitialSpeedMult(roomData.ballSpeedMultiplier);
                 }
 
                 yield return new WaitForSeconds(1);
@@ -150,8 +165,7 @@ namespace Match
                     rnd = -1;
                 }
 
-                ballObject.transform.position = ballSpawn.position;
-                ballObject.transform.rotation = Quaternion.Euler(0, 0, rnd * 90);
+                ballObject.transform.SetPositionAndRotation(ballSpawn.position, Quaternion.Euler(0, 0, rnd * 90));
                 ballObject.StartMoving();
                 isStartingRound = false;
             }
@@ -159,27 +173,52 @@ namespace Match
 
         public void OnPlayerLeave(NetworkConnection conn)
         {
-            if (conn == null) return;
+            if(DespawnPlayerFromMatch(conn) && roomData.playersInside.Count <= 1)
+                StartCoroutine(EndMatch());
+        }
+
+        public void OnPlayerLeave(NetworkConnection[] conn)
+        {
+            bool despawned = false;
+            if(conn != null && conn.Length > 0)
+            {
+                for (int i = 0; i < conn.Length; i++)
+                {
+                    bool isDesp = DespawnPlayerFromMatch(conn[i]);
+                    if (isDesp)
+                        despawned = true;
+                }
+
+                if(despawned && roomData.playersInside.Count <= 1)
+                    StartCoroutine(EndMatch());
+            }
+        }
+
+        private bool DespawnPlayerFromMatch(NetworkConnection conn)
+        {
+            if (conn == null) return false;
             Debug.Log("A player left the match!");
-            bool wasPlaying = true;
+            bool wasDeleted = true;
             if (leftPlayer != null && leftPlayer.CompareOwner(conn))
             {
                 leftPlayer.Despawn();
+                CDebug.Log("Left player despawned");
             }
             else if (rightPlayer != null && rightPlayer.CompareOwner(conn))
             {
                 rightPlayer.Despawn();
+                CDebug.Log("Right player despawned");
             }
-            else wasPlaying = false;
+            else wasDeleted = false;
 
-            if(wasPlaying)
-            {
-                StartCoroutine(EndMatch());
-            }
+            return wasDeleted;
         }
 
         private IEnumerator EndMatch()
         {
+            if (isEnding) yield break;
+            CDebug.Log("Ending game...");
+            isEnding = true;
             // Cooldown for player inside the room before getting kicked
             if (roomData.HasAnyPlayer())
             {
@@ -188,6 +227,14 @@ namespace Match
             }
 
             RoomManager.Instance.OnGameFinished(roomData.id);
+        }
+
+        public void ClientLocalPlayerQuit()
+        {
+            if(IsClient)
+            {
+                RoomManager.Instance.ServerUnloadPlayerFromRoom(idRoomClient);
+            }
         }
     }
 }

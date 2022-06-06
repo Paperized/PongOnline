@@ -3,30 +3,20 @@ using FishNet.Object.Prediction;
 using FishNet.Object.Synchronizing;
 using System.Collections;
 using UnityEngine;
+using Utils;
 
 public class BallMovement : NetworkBehaviour
 {
-    #region Types.
-    public struct ReconcileData
-    {
-        public Vector3 Position;
-        public Vector2 Velocity;
-        public ReconcileData(Vector3 position, Vector2 velocity)
-        {
-            Position = position;
-            Velocity = velocity;
-        }
-    }
-    #endregion
-
     private Rigidbody2D rigidbody2D;
     public float maxVelocity;
+    [SyncVar]
     public float initialVelocity;
     public float maxAngle = 75;
     public float velocityIncreasePerHit = 0.8f;
-
-    [SyncVar(OnChange = nameof(OnCurrentSpeedChanged))]
     private float currentSpeed;
+
+    [SerializeField]
+    private float offsetCollisionX;
 
     // Start is called before the first frame update
     void Awake()
@@ -34,56 +24,65 @@ public class BallMovement : NetworkBehaviour
         rigidbody2D = GetComponent<Rigidbody2D>();
     }
 
+    public void ServerSetInitialSpeedMult(float mult)
+    {
+        this.initialVelocity = initialVelocity * mult;
+    }
+
     public override void OnStartNetwork()
     {
         base.OnStartNetwork();
 
-        TimeManager.OnTick += TimeManager_OnTick;
+        TimeManager.OnPostTick += TimeManager_OnPostTick;
     }
 
     public override void OnStopNetwork()
     {
         base.OnStopNetwork();
 
-        TimeManager.OnTick -= TimeManager_OnTick;
+        TimeManager.OnPostTick -= TimeManager_OnPostTick;
     }
 
-    private void TimeManager_OnTick()
+    private void TimeManager_OnPostTick()
     {
-        // keep facing the velocity direction
         transform.up = rigidbody2D.velocity;
     }
 
     public void StartMoving()
     {
-        currentSpeed = initialVelocity;
+        ServerOnSpeedChanged(initialVelocity, transform.rotation.eulerAngles.z);
     }
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        if (!collision.gameObject.tag.Equals("Player")) return;
+        if (!IsServer) return;
+        if (!collision.gameObject.CompareTag("Player")) return;
+
         // on collision on player
         SpriteRenderer spriteRenderer = collision.gameObject.transform.GetChild(0).GetComponent<SpriteRenderer>();
+        ContactPoint2D contactPoint = collision.GetContact(0);
+        if (spriteRenderer.bounds.max.x - contactPoint.point.x >= offsetCollisionX)
+            return;
         // sprite height
         float heightPlayer = spriteRenderer.bounds.size.y;
         // get contact point to player height, this value is in local space
-        float contactPoint = collision.GetContact(0).point.y - spriteRenderer.bounds.min.y;
+        float contactPointY = contactPoint.point.y - spriteRenderer.bounds.min.y;
         // get an offset between -1 and 1 depending on the contact point height
-        float normalizedOffset = NormalizeFromValue(heightPlayer, contactPoint, 2);
+        float normalizedOffset = NormalizeFromValue(heightPlayer, contactPointY, 2);
         // get the player offset depending on the side he's playing, to make the ball face the right direction
         float playerSide = collision.gameObject.GetComponent<PlayerMovement>().playerSide;
         // the new angle is the max possible angle multiplied by the normalized offset (center = 0, limits = maxAngle) depending
         // also on the player side
         float outputAngle = playerSide * 90f + maxAngle * normalizedOffset * -playerSide;
-        // rotate the new angle
-        transform.rotation = Quaternion.Euler(0, 0, outputAngle);
 
-        currentSpeed += velocityIncreasePerHit;
+        ServerOnSpeedChanged(currentSpeed + velocityIncreasePerHit, outputAngle);
     }
 
-    private void OnCurrentSpeedChanged(float oldValue, float newValue, bool asServer)
+    private void ServerOnSpeedChanged(float speed, float zRotation)
     {
-        rigidbody2D.velocity = transform.up * newValue;
+        currentSpeed = speed;
+        transform.rotation = Quaternion.Euler(0, 0, zRotation);
+        rigidbody2D.velocity = transform.up * currentSpeed;
     }
 
     private float NormalizeFromValue(float max, float value, int ratio)

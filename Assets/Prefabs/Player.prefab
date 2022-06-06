@@ -182,7 +182,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _networkBehaviours:
   - {fileID: 1458536932}
-  - {fileID: 0}
   - {fileID: 7434505929057474979}
   SceneTransformProperties:
     Position: {x: -11.97, y: 3.2712, z: 0}
@@ -191,7 +190,7 @@ MonoBehaviour:
   _isNetworked: 1
   _hasParentNetworkObjectAtEdit: 0
   NetworkObserver: {fileID: 0}
-  _prefabId: 4
+  _prefabId: 5
   _scenePathHash: 0
   _sceneId: 0
   _sceneNetworkObjects:
@@ -226,12 +225,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 402926ef33e0a894d9fec352693988ac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _componentIndexCache: 2
+  _componentIndexCache: 1
   _addedNetworkObject: {fileID: 3016396478181648798}
   _networkObjectCache: {fileID: 3016396478181648798}
   _graphicalObject: {fileID: 4890322130357517247}
   _smoothTicks: 1
-  _smoothingDuration: 0.125
+  _smoothingDuration: 0.205
   _predictionType: 2
   _rigidbody: {fileID: 0}
   _rigidbody2d: {fileID: 7472549619225172528}

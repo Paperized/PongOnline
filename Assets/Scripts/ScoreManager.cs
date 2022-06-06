@@ -22,7 +22,7 @@ public class ScoreManager : NetworkBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        if(!scoreLeftText || !scoreRightText)
+        if(GlobalInitializer.StartedAsClient && (!scoreLeftText || !scoreRightText))
         {
             Debug.LogError("Score labels cannot be null");
         }

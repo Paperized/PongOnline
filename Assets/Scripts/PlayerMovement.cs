@@ -3,7 +3,7 @@ using FishNet.Object;
 using FishNet.Object.Prediction;
 using FishNet.Object.Synchronizing;
 using UnityEngine;
-
+using Utils;
 
 public class PlayerMovement : NetworkBehaviour
 {
@@ -17,6 +17,7 @@ public class PlayerMovement : NetworkBehaviour
             Vertical = vertical;
         }
     }
+
     public struct ReconcileData
     {
         public Vector3 Position;
@@ -30,7 +31,8 @@ public class PlayerMovement : NetworkBehaviour
     #endregion
 
     [SerializeField]
-    private float _speed = 10f;
+    [SyncVar]
+    private float _speed = 17f;
     private Rigidbody2D _rigidbody;
 
     [SyncVar]
@@ -42,6 +44,11 @@ public class PlayerMovement : NetworkBehaviour
         _rigidbody = GetComponent<Rigidbody2D>();
     }
 
+    public void ServerSetSpeedMult(float mult)
+    {
+        _speed = _speed * mult;
+    }
+
     public override void OnStartNetwork()
     {
         base.OnStartNetwork();
@@ -50,8 +57,10 @@ public class PlayerMovement : NetworkBehaviour
         TimeManager.OnPostTick += TimeManager_OnPostTick;
     }
 
-    private void OnDestroy()
+    public override void OnStopNetwork()
     {
+        base.OnStopNetwork();
+
         if (TimeManager != null)
         {
             TimeManager.OnTick -= TimeManager_OnTick;
@@ -94,7 +103,6 @@ public class PlayerMovement : NetworkBehaviour
     [Replicate]
     private void Move(MoveData md, bool asServer, bool replaying = false)
     {
-        //Add extra gravity for faster falls.
         _rigidbody.velocity = new Vector2(0, md.Vertical);
     }
 

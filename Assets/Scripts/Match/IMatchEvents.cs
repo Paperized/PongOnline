@@ -16,6 +16,8 @@ namespace Match
         void OnPlayerEnter(NetworkConnection conn);
         // Called during a Disconnection or Player leaving on their own
         void OnPlayerLeave(NetworkConnection conn);
+        // Called during a Disconnection or Player leaving on their own
+        void OnPlayerLeave(NetworkConnection[] conn);
 
         // Called from some trigger inside the Match Scene
         void OnScorePoint(Utils.MatchSide side);

@@ -268,6 +268,7 @@ GameObject:
   m_Component:
   - component: {fileID: 829483539}
   - component: {fileID: 829483538}
+  - component: {fileID: 829483540}
   m_Layer: 0
   m_Name: GlobalInitializer
   m_TagString: Untagged
@@ -304,6 +305,25 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &829483540
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 829483537}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a913d57a6c031a0499de285f43609395, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  buildForDeploy: 0
+  localServerConfiguration: {fileID: 11400000, guid: cd5c59449cbdfa844843dcd09606def5, type: 2}
+  deployServerConfiguration: {fileID: 11400000, guid: a4d3cd06b152bf74eb86b1f701612a88, type: 2}
+  localStandaloneConfiguration: {fileID: 11400000, guid: 6a19d3799fb67f5488f8e8c77f7d26ba, type: 2}
+  deployStandaloneConfiguration: {fileID: 11400000, guid: 0eef0daab8b74f9488d10925de445af7, type: 2}
+  localWebConfiguration: {fileID: 11400000, guid: 6a19d3799fb67f5488f8e8c77f7d26ba, type: 2}
+  deployWebConfiguration: {fileID: 11400000, guid: 0eef0daab8b74f9488d10925de445af7, type: 2}
 --- !u!1 &896027303
 GameObject:
   m_ObjectHideFlags: 0
@@ -567,6 +587,14 @@ PrefabInstance:
       propertyPath: m_TagString
       value: Singletons
       objectReference: {fileID: 0}
+    - target: {fileID: 9064653413754551691, guid: ea7393354d1912149b090b7fe303553a, type: 3}
+      propertyPath: _frameRate
+      value: 60
+      objectReference: {fileID: 0}
+    - target: {fileID: 9064653413754551691, guid: ea7393354d1912149b090b7fe303553a, type: 3}
+      propertyPath: _startOnHeadless
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_AddedGameObjects: []
   m_SourcePrefab: {fileID: 100100000, guid: ea7393354d1912149b090b7fe303553a, type: 3}
@@ -590,7 +618,7 @@ MonoBehaviour:
   _tickRate: 30
   _pingInterval: 1
   _timingInterval: 2
-  _physicsMode: 1
+  _physicsMode: 2
   _maximumBufferedInputs: 15
 --- !u!114 &1099769578
 MonoBehaviour:

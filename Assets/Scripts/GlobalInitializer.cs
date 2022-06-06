@@ -1,8 +1,11 @@
 using FishNet;
 using FishNet.Managing;
 using FishNet.Managing.Scened;
+using FishNet.Managing.Timing;
+using FishNet.Transporting.Tugboat;
 using System.Collections;
 using UnityEngine;
+using Utils;
 
 public class GlobalInitializer : MonoBehaviour
 {
@@ -22,13 +25,39 @@ public class GlobalInitializer : MonoBehaviour
         StartedAsClient = !startAsServer;
         StartedAsServer = startAsServer;
 
+        InitializeFiles filesInit = FindObjectOfType<InitializeFiles>();
+        filesInit.SetupDefaultGameConfig();
+#if !UNITY_EDITOR
+        GameConfiguration config = filesInit.LoadGameConfiguration();
+#else
+        GameConfiguration config = GameConfiguration.InstanceGame;
+#endif
+
+        Tugboat networkLayer = FindObjectOfType<Tugboat>();
+        networkLayer.SetPort((ushort)config.port);
+        networkLayer.SetTimeout(config.timeoutAfterSeconds, StartedAsServer);
+
+        TimeManager timeManager = FindObjectOfType<TimeManager>();
+        timeManager.SetTickRate((ushort)config.tickRate);
+
         if (StartedAsServer)
         {
+            networkLayer.SetServerBindAddress(config.bindAddress, FishNet.Transporting.IPAddressType.IPv4);
+            networkLayer.SetMaximumClients(config.maximumClient);
+
+            CDebug.LogError($"Port {config.port}, Timeout {config.timeoutAfterSeconds}, Bind {networkLayer.GetServerBindAddress(FishNet.Transporting.IPAddressType.IPv4)}, Max Clients {networkLayer.GetMaximumClients()}");
+            CDebug.LogError(config.ToString());
+
             networkManager.ServerManager.OnServerConnectionState += ServerManager_OnServerConnectionState;
             networkManager.ServerManager.StartConnection();
         }
         else
         {
+            networkLayer.SetClientAddress(config.bindAddress);
+
+            CDebug.LogError($"Port {config.port}, Bind {networkLayer.GetServerBindAddress(FishNet.Transporting.IPAddressType.IPv4)}");
+            CDebug.LogError(config.ToString());
+
             networkManager.ClientManager.OnClientConnectionState += ClientManager_OnClientConnectionState;
             networkManager.ClientManager.StartConnection();
         }
